@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; connect-src http://127.0.0.1:8765; media-src http://127.0.0.1:8765; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>YouTube Automations</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div id="toast-container"></motion>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <h1>Fitness Warm-Up TV</h1>
+          <p class="brand-sub">Video studio</p>
+        </div>
+        <button type="button" id="btn-new-video" class="btn btn-primary btn-block">+ New video</button>
+      </motion>
+
+      <div class="filter-tabs" role="tablist">
+        <button type="button" class="filter-tab active" data-filter="all">All</button>
+        <button type="button" class="filter-tab" data-filter="active">Active</button>
+        <button type="button" class="filter-tab" data-filter="review">Review</button>
+        <button type="button" class="filter-tab" data-filter="approved">Approved</button>
+        <button type="button" class="filter-tab" data-filter="done">Done</button>
+        <button type="button" class="filter-tab" data-filter="failed">Failed</button>
+      </div>
+
+      <div id="job-list" class="job-list">
+        <p class="list-empty">Loading…</p>
+      </div>
+
+      <div class="sidebar-footer">
+        <button type="button" id="btn-settings" class="btn btn-ghost btn-block">Settings</button>
+      </div>
+    </aside>
+
+    <main class="detail-pane" id="detail-pane">
+      <div class="detail-empty" id="detail-empty">
+        <h2>Select a video</h2>
+        <p>Choose a job from the inbox or create a new one.</p>
+        <button type="button" id="btn-empty-create" class="btn btn-primary">Create video</button>
+      </div>
+      <div class="detail-content hidden" id="detail-content"></motion>
+    </main>
+  </div>
+
+  <!-- New video modal -->
+  <div class="overlay hidden" id="modal-overlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">New video</h2>
+        <button type="button" class="btn-icon" id="modal-close" aria-label="Close">&times;</button>
+      </div>
+      <form id="generate-form">
+        <label class="field">
+          <span>Topic</span>
+          <input type="text" id="topic" placeholder="e.g. 15 min morning desk stretch" required />
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Duration</span>
+            <select id="duration">
+              <option value="1">1 min (quick test)</option>
+              <option value="3">3 min</option>
+              <option value="8">8 min</option>
+              <option value="12" selected>12 min</option>
+              <option value="15">15 min</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Audio</span>
+            <select id="audio">
+              <option value="coach_voice" selected>Coach voice</option>
+              <option value="music_only">Music only</option>
+            </select>
+          </label>
+        </div>
+        <div class="presets">
+          <span class="presets-label">Presets:</span>
+          <button type="button" class="btn btn-secondary btn-sm" id="preset-quick">Quick test (1 min)</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="preset-standard">Standard (12 min)</button>
+        </div>
+        <p class="hint">Coach voice uses AI narration. Music only needs MP3s in assets/music/.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="modal-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-generate">Generate</button>
+        </motion>
+      </form>
+    </div>
+  </div>
+
+  <!-- Settings drawer -->
+  <div class="overlay overlay-drawer hidden" id="drawer-overlay" aria-hidden="true">
+    <aside class="drawer" role="dialog" aria-labelledby="drawer-title">
+      <div class="drawer-header">
+        <h2 id="drawer-title">Settings</h2>
+        <button type="button" class="btn-icon" id="drawer-close" aria-label="Close">&times;</button>
+      </div>
+      <div id="setup-warning" class="setup-warning hidden">
+        <strong>Setup required</strong>
+        <ul id="setup-issues"></ul>
+        <p class="hint">Copy .env.example to .env, add keys, install FFmpeg, restart the app.</p>
+      </div>
+      <ul class="checklist" id="env-checklist"></ul>
+      <div class="drawer-actions">
+        <button type="button" id="btn-auth" class="btn btn-secondary btn-block">Connect YouTube</button>
+        <button type="button" id="btn-research" class="btn btn-secondary btn-block">Refresh competitor research</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Publish confirm -->
+  <div class="overlay hidden" id="publish-overlay" aria-hidden="true">
+    <div class="modal modal-sm" role="dialog">
+      <h2>Publish to YouTube?</h2>
+      <p id="publish-confirm-text">This will upload the video as public.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="publish-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="publish-confirm">Publish now</button>
+      </div>
+    </div>
+  </motion>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 from pipeline.assets.tts import synthesize_voice
@@ -65,7 +65,7 @@ def _concat_segments(segment_paths: list[Path], out_path: Path) -> None:
     list_file = out_path.parent / "concat_list.txt"
     lines = [f"file '{p.resolve().as_posix()}'" for p in segment_paths]
     list_file.write_text("\n".join(lines), encoding="utf-8")
-  # Re-encode for consistent fps (avoids browser stopping after ~10s)
+    # Re-encode for consistent fps (avoids browser stopping after ~10s)
     run_ffmpeg(
         [
             "-f",
@@ -158,13 +158,19 @@ def _mix_audio(
     run_ffmpeg(cmd)
 
 
-def _build_voiceover(script: VideoScript, work_dir: Path) -> Path | None:
+def _build_voiceover(
+    script: VideoScript,
+    work_dir: Path,
+    on_stage: Callable[[str, str, int], None] | None = None,
+) -> Path | None:
     if script.audio_mode != "coach_voice":
         return None
     parts: list[Path] = []
-    for scene in script.scenes:
-        if not scene.voiceover.strip():
-            continue
+    voice_scenes = [s for s in script.scenes if s.voiceover.strip()]
+    for i, scene in enumerate(voice_scenes):
+        if on_stage:
+            pct = 55 + int(20 * (i + 1) / max(len(voice_scenes), 1))
+            on_stage("tts", f"Voiceover scene {i + 1}/{len(voice_scenes)}…", pct)
         part = work_dir / f"voice_{scene.id}.mp3"
         synthesize_voice(scene.voiceover, part)
         parts.append(part)
@@ -194,7 +200,11 @@ def _build_voiceover(script: VideoScript, work_dir: Path) -> Path | None:
     return combined
 
 
-def render_fitness_tv(script: VideoScript, work_dir: Path) -> Path:
+def render_fitness_tv(
+    script: VideoScript,
+    work_dir: Path,
+    on_stage: Callable[[str, str, int], None] | None = None,
+) -> Path:
     require_ffmpeg()
     niche = load_niche()
     brand = load_brand()
@@ -206,8 +216,16 @@ def render_fitness_tv(script: VideoScript, work_dir: Path) -> Path:
     segments_dir = work_dir / "segments"
     segments_dir.mkdir(exist_ok=True)
 
+    total = len(script.scenes)
     segment_paths: list[Path] = []
-    for scene in script.scenes:
+    for i, scene in enumerate(script.scenes):
+        if on_stage:
+            pct = 25 + int(30 * (i + 1) / max(total, 1))
+            on_stage(
+                "clips",
+                f"Scene {i + 1}/{total}: fetching clip & rendering…",
+                pct,
+            )
         clip = resolve_clip_for_scene(scene, work_dir)
         seg_out = segments_dir / f"scene_{scene.id:02d}.mp4"
         if clip and clip.exists():
@@ -216,16 +234,21 @@ def render_fitness_tv(script: VideoScript, work_dir: Path) -> Path:
             _render_placeholder(scene, seg_out, width, height, primary)
         segment_paths.append(seg_out)
 
+    if on_stage:
+        on_stage("render", "Concatenating segments…", 58)
+
     concat_out = work_dir / "video_no_audio.mp4"
     _concat_segments(segment_paths, concat_out)
 
-    voice = _build_voiceover(script, work_dir)
+    voice = _build_voiceover(script, work_dir, on_stage=on_stage)
     music = _pick_music()
     if script.audio_mode == "music_only" and not music and not voice:
         print(
             "WARNING: music_only but assets/music/ is empty — video will be silent. "
             "Add MP3 files to assets/music/ or use coach_voice."
         )
+    if on_stage:
+        on_stage("mix", "Mixing audio…", 80)
     final = work_dir / "final.mp4"
     _mix_audio(concat_out, final, voice, music)
     return final

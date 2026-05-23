@@ -1,4 +1,4 @@
-"""Local web UI for the YouTube automation pipeline."""
+"""Internal API server for the Electron desktop app."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -17,19 +17,26 @@ sys.path.insert(0, str(ROOT))
 from pipeline import db
 from pipeline.config import get_settings
 from pipeline.db import init_db
-from pipeline.orchestrator import approve_job, publish_job, reject_job
+from pipeline.orchestrator import approve_job, execute_generate, publish_job, reject_job
 from pipeline.publish.auth_youtube import run_oauth_flow
 from pipeline.research.competitor import refresh_competitor_cache
 from pipeline.render.ffmpeg_util import require_ffmpeg
 
-app = FastAPI(title="YouTube Automations UI")
-STATIC = Path(__file__).parent / "static"
+app = FastAPI(title="YouTube Automations API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class GenerateRequest(BaseModel):
     topic: str
     duration: int = 12
-    audio_mode: str = "music_only"
+    audio_mode: str = "coach_voice"
     niche: str = "fitness_warmup"
 
 
@@ -59,7 +66,13 @@ def api_check() -> dict:
         ffmpeg_ok = False
         ffmpeg_msg = str(e)
     music = list(settings["music_library_dir"].glob("*.mp3"))
+    ready = (
+        bool(settings["openai_api_key"])
+        and bool(settings["pexels_api_key"])
+        and ffmpeg_ok
+    )
     return {
+        "ready": ready,
         "openai": bool(settings["openai_api_key"]),
         "pexels": bool(settings["pexels_api_key"]),
         "youtube_api": bool(settings["youtube_api_key"]),
@@ -114,35 +127,18 @@ def api_generate(req: GenerateRequest, bg: BackgroundTasks) -> dict:
     job_id = db.create_job(
         topic=req.topic, niche=req.niche, audio_mode=req.audio_mode
     )
-    db.update_job(job_id, status="generating")
 
     def task() -> None:
-        settings = get_settings()
-        work_dir = settings["root"] / "assets" / "output" / ".work" / job_id
         try:
-            from pipeline.script import generate_script
-            from pipeline.render.fitness_tv import render_fitness_tv
-            import shutil
-
-            work_dir.mkdir(parents=True, exist_ok=True)
-            script = generate_script(
+            execute_generate(
+                job_id,
                 topic=req.topic,
                 duration_minutes=req.duration,
                 audio_mode=req.audio_mode,
-                niche_name=req.niche,
+                niche=req.niche,
             )
-            db.update_job(job_id, script_json=script.model_dump_json(), work_dir=str(work_dir))
-            final = render_fitness_tv(script, work_dir)
-            pending_name = f"{job_id}_{req.topic[:30].replace(' ', '_')}.mp4"
-            pending_path = settings["output_pending"] / pending_name
-            shutil.copy2(final, pending_path)
-            db.update_job(
-                job_id,
-                status="pending_review",
-                video_path=str(pending_path),
-            )
-        except Exception as e:
-            db.update_job(job_id, status="failed", error=str(e))
+        except Exception:
+            pass
 
     bg.add_task(task)
     return {"job_id": job_id, "status": "generating"}
@@ -193,9 +189,6 @@ def api_auth_youtube() -> dict:
     except Exception as e:
         raise HTTPException(500, str(e)) from e
     return {"ok": True}
-
-
-app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")
 
 
 if __name__ == "__main__":

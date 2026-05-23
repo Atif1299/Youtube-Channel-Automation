@@ -1,6 +1,7 @@
 {
-  "name": "youtube-automations-ui",
+  "name": "youtube-automations-desktop",
   "version": "1.0.0",
+  "description": "YouTube fitness warm-up video automation desktop app",
   "main": "main.js",
   "scripts": {
     "start": "electron ."

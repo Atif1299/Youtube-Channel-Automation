@@ -12,6 +12,7 @@ from pipeline.config import get_settings
 
 STATUSES = (
     "draft",
+    "generating",
     "rendered",
     "pending_review",
     "approved",
@@ -22,9 +23,25 @@ STATUSES = (
     "failed",
 )
 
+_PROGRESS_COLUMNS = (
+    ("stage", "TEXT"),
+    ("stage_message", "TEXT"),
+    ("progress_pct", "INTEGER"),
+)
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    cols = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+    }
+    for name, col_type in _PROGRESS_COLUMNS:
+        if name not in cols:
+            conn.execute(f"ALTER TABLE jobs ADD COLUMN {name} {col_type}")
 
 
 def init_db() -> None:
@@ -46,11 +63,15 @@ def init_db() -> None:
                 youtube_video_id TEXT,
                 publish_at TEXT,
                 error TEXT,
+                stage TEXT,
+                stage_message TEXT,
+                progress_pct INTEGER,
                 created_at TEXT,
                 updated_at TEXT
             )
             """
         )
+        _migrate(conn)
 
 
 @contextmanager
@@ -92,6 +113,9 @@ def update_job(job_id: str, **fields: Any) -> None:
         "youtube_video_id",
         "publish_at",
         "error",
+        "stage",
+        "stage_message",
+        "progress_pct",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -101,6 +125,21 @@ def update_job(job_id: str, **fields: Any) -> None:
     values = list(updates.values()) + [job_id]
     with _connect() as conn:
         conn.execute(f"UPDATE jobs SET {cols} WHERE id = ?", values)
+
+
+def update_job_stage(
+    job_id: str,
+    stage: str,
+    message: str,
+    progress_pct: int | None = None,
+) -> None:
+    fields: dict[str, Any] = {
+        "stage": stage,
+        "stage_message": message,
+    }
+    if progress_pct is not None:
+        fields["progress_pct"] = progress_pct
+    update_job(job_id, **fields)
 
 
 def get_job(job_id: str) -> dict | None:

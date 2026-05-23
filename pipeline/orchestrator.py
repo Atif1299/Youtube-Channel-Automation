@@ -19,54 +19,105 @@ def run_generate(
     audio_mode: str | None = None,
     niche: str = "fitness_warmup",
 ) -> str:
+    """Create a job and run the full generate pipeline synchronously."""
     db.init_db()
     niche_cfg = load_niche(niche)
     mode = audio_mode or niche_cfg.get("audio_mode", "music_only")
-
     job_id = db.create_job(topic=topic, niche=niche, audio_mode=mode)
+    execute_generate(
+        job_id,
+        topic=topic,
+        duration_minutes=duration_minutes,
+        audio_mode=mode,
+        niche=niche,
+    )
+    return job_id
+
+
+def execute_generate(
+    job_id: str,
+    topic: str,
+    duration_minutes: int = 12,
+    audio_mode: str = "music_only",
+    niche: str = "fitness_warmup",
+) -> None:
+    """Run generate pipeline for an existing job (used by API background tasks)."""
+    db.init_db()
     settings = get_settings()
     work_dir = settings["root"] / "assets" / "output" / ".work" / job_id
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    script = generate_script(
-        topic=topic,
-        duration_minutes=duration_minutes,
-        audio_mode=mode,
-        niche_name=niche,
-    )
-    used_ai = any(s.provider in ("veo", "hailuo", "kling") for s in script.scenes)
-
     db.update_job(
         job_id,
-        script_json=script.model_dump_json(),
+        status="generating",
         work_dir=str(work_dir),
+        error=None,
+        stage="script",
+        stage_message="Generating script…",
+        progress_pct=5,
     )
 
-    final = render_fitness_tv(script, work_dir)
-    pending_name = f"{job_id}_{_slug(topic)}.mp4"
-    pending_path = settings["output_pending"] / pending_name
-    shutil.copy2(final, pending_path)
+    try:
+        script = generate_script(
+            topic=topic,
+            duration_minutes=duration_minutes,
+            audio_mode=audio_mode,
+            niche_name=niche,
+        )
+        db.update_job(
+            job_id,
+            script_json=script.model_dump_json(),
+            stage="render",
+            stage_message="Rendering video segments…",
+            progress_pct=20,
+        )
 
-    sidecar = pending_path.with_suffix(".json")
-    sidecar.write_text(
-        json.dumps(
-            {
-                "job_id": job_id,
-                "topic": topic,
-                "title_draft": script.title_draft,
-                "audio_mode": mode,
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+        def on_stage(stage: str, message: str, pct: int) -> None:
+            db.update_job_stage(job_id, stage, message, pct)
 
-    db.update_job(
-        job_id,
-        status="pending_review",
-        video_path=str(pending_path),
-    )
-    return job_id
+        final = render_fitness_tv(script, work_dir, on_stage=on_stage)
+
+        db.update_job_stage(
+            job_id,
+            "finalize",
+            "Copying to pending review…",
+            95,
+        )
+        pending_name = f"{job_id}_{_slug(topic)}.mp4"
+        pending_path = settings["output_pending"] / pending_name
+        shutil.copy2(final, pending_path)
+
+        sidecar = pending_path.with_suffix(".json")
+        sidecar.write_text(
+            json.dumps(
+                {
+                    "job_id": job_id,
+                    "topic": topic,
+                    "title_draft": script.title_draft,
+                    "audio_mode": audio_mode,
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        db.update_job(
+            job_id,
+            status="pending_review",
+            video_path=str(pending_path),
+            stage="done",
+            stage_message="Ready for review",
+            progress_pct=100,
+        )
+    except Exception as e:
+        db.update_job(
+            job_id,
+            status="failed",
+            error=str(e),
+            stage="failed",
+            stage_message=str(e),
+        )
+        raise
 
 
 def approve_job(job_id: str) -> None:
@@ -120,7 +171,7 @@ def publish_job(job_id: str, publish_at: str | None = None) -> str:
     from pipeline.models import VideoMetadata
 
     metadata = VideoMetadata.model_validate_json(job["metadata_json"])
-    db.update_job(job_id, status="uploading")
+    db.update_job(job_id, status="uploading", stage="publish", stage_message="Uploading to YouTube…")
     try:
         video_id = upload_video(
             Path(job["video_path"]),
@@ -134,10 +185,13 @@ def publish_job(job_id: str, publish_at: str | None = None) -> str:
             status=status,
             youtube_video_id=video_id,
             publish_at=publish_at,
+            stage="done",
+            stage_message="Published",
+            progress_pct=100,
         )
         return video_id
     except Exception as e:
-        db.update_job(job_id, status="failed", error=str(e))
+        db.update_job(job_id, status="failed", error=str(e), stage="failed", stage_message=str(e))
         raise
 
 

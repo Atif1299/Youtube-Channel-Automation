@@ -46,6 +46,22 @@ header h1
   font-size: 1rem;
 }
 
+.hidden
+{
+  display: none;
+}
+
+.setup-panel
+{
+  border: 1px solid #f77f00;
+}
+
+.setup-panel ul
+{
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
 #generate-form
 {
   display: flex;
@@ -78,6 +94,12 @@ button
 button:hover
 {
   background: #9d4edd;
+}
+
+button:disabled
+{
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 button.danger
@@ -145,7 +167,8 @@ button.secondary
   background: #2a9d8f;
 }
 
-.badge.generating
+.badge.generating,
+.badge.uploading
 {
   background: #3a86ff;
 }
@@ -155,7 +178,8 @@ button.secondary
   background: #c1121f;
 }
 
-.badge.published
+.badge.published,
+.badge.scheduled
 {
   background: #06d6a0;
   color: #111;
@@ -181,4 +205,88 @@ video
   font-size: 0.8rem;
   color: #bbb;
   margin-top: 0.25rem;
+}
+
+.error-text
+{
+  color: #ff6b6b;
+}
+
+.stage-info
+{
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.spinner
+{
+  width: 14px;
+  height: 14px;
+  border: 2px solid #555;
+  border-top-color: #9d4edd;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin
+{
+  to
+  {
+    transform: rotate(360deg);
+  }
+}
+
+.progress
+{
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  margin-top: 0.5rem;
+  overflow: hidden;
+}
+
+.progress-fill
+{
+  height: 100%;
+  background: #9d4edd;
+  transition: width 0.3s ease;
+}
+
+#toast-container
+{
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.toast
+{
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  background: #333;
+  color: #fff;
+  max-width: 320px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.toast-success
+{
+  background: #2a9d8f;
+}
+
+.toast-error
+{
+  background: #c1121f;
+}
+
+.toast-info
+{
+  background: #3a86ff;
 }
