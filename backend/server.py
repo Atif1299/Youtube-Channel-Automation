@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 from pipeline import db
 from pipeline.config import get_settings
 from pipeline.db import init_db
-from pipeline.orchestrator import approve_job, execute_generate, publish_job, reject_job
+from pipeline.orchestrator import approve_job, delete_job, execute_generate, publish_job, reject_job
 from pipeline.publish.auth_youtube import run_oauth_flow
 from pipeline.research.competitor import refresh_competitor_cache
 from pipeline.render.ffmpeg_util import require_ffmpeg
@@ -157,6 +157,15 @@ def api_approve(job_id: str) -> dict:
 def api_reject(job_id: str) -> dict:
     try:
         reject_job(job_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"ok": True}
+
+
+@app.delete("/api/jobs/{job_id}")
+def api_delete_job(job_id: str) -> dict:
+    try:
+        delete_job(job_id)
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
     return {"ok": True}

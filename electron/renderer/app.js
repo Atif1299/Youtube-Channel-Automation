@@ -6,6 +6,7 @@ let activeFilter = "all";
 let allJobs = [];
 let initialSelectDone = false;
 let pendingPublishJobId = null;
+let pendingDeleteJobId = null;
 let jobMetadataCache = {};
 
 const PLAYABLE_STATUSES = ["pending_review", "approved", "published", "scheduled"];
@@ -297,7 +298,14 @@ function renderDetail(job) {
 
   content.innerHTML = `
     <div class="detail-header">
-      <h2>${escapeHtml(job.topic || "Untitled")}</h2>
+      <div class="detail-header-top">
+        <h2>${escapeHtml(job.topic || "Untitled")}</h2>
+        ${
+          job.status === "generating" || job.status === "uploading"
+            ? ""
+            : `<button type="button" class="btn btn-danger btn-sm" data-action="delete">Delete</button>`
+        }
+      </div>
       <div class="detail-meta-row">
         <span class="badge ${job.status}">${statusLabel(job.status)}</span>
         <span class="detail-id">${escapeHtml(job.id)}</span>
@@ -322,6 +330,9 @@ function renderDetail(job) {
   content.querySelector('[data-action="copy-id"]')?.addEventListener("click", () => {
     navigator.clipboard.writeText(job.id).then(() => toast("Job ID copied", "success"));
   });
+  content.querySelector('[data-action="delete"]')?.addEventListener("click", () =>
+    openDeleteConfirm(job.id)
+  );
 
   if (["approved", "published", "scheduled"].includes(job.status) && !cachedMeta) {
     fetchMetadata(job.id).then((meta) => {
@@ -406,6 +417,42 @@ function closePublishConfirm() {
   const overlay = document.getElementById("publish-overlay");
   overlay.classList.add("hidden");
   overlay.setAttribute("aria-hidden", "true");
+}
+
+function openDeleteConfirm(jobId) {
+  pendingDeleteJobId = jobId;
+  const job = allJobs.find((j) => j.id === jobId);
+  const text = document.getElementById("delete-confirm-text");
+  text.textContent = job?.topic
+    ? `Delete "${job.topic}" and remove all local files for this run? This cannot be undone.`
+    : "This removes the job, video files, and work data from this app. This cannot be undone.";
+  const ytNote = document.getElementById("delete-youtube-note");
+  const onYoutube = job?.status === "published" || job?.status === "scheduled";
+  ytNote.classList.toggle("hidden", !onYoutube);
+  const overlay = document.getElementById("delete-overlay");
+  overlay.classList.remove("hidden");
+  overlay.setAttribute("aria-hidden", "false");
+}
+
+function closeDeleteConfirm() {
+  pendingDeleteJobId = null;
+  const overlay = document.getElementById("delete-overlay");
+  overlay.classList.add("hidden");
+  overlay.setAttribute("aria-hidden", "true");
+}
+
+async function deleteJob(id) {
+  try {
+    const r = await fetch(`${API}/api/jobs/${id}`, { method: "DELETE" });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "Delete failed");
+    delete jobMetadataCache[id];
+    if (selectedJobId === id) selectedJobId = null;
+    toast("Run deleted.", "success");
+    loadJobs();
+  } catch (err) {
+    toast(err.message, "error");
+  }
 }
 
 function applyPreset(quick) {
@@ -545,6 +592,16 @@ document.getElementById("publish-confirm").onclick = async () => {
   const id = pendingPublishJobId;
   closePublishConfirm();
   if (id) await publishNow(id);
+};
+
+document.getElementById("delete-cancel").onclick = closeDeleteConfirm;
+document.getElementById("delete-overlay").onclick = (e) => {
+  if (e.target.id === "delete-overlay") closeDeleteConfirm();
+};
+document.getElementById("delete-confirm").onclick = async () => {
+  const id = pendingDeleteJobId;
+  closeDeleteConfirm();
+  if (id) await deleteJob(id);
 };
 
 document.querySelectorAll(".filter-tab").forEach((tab) => {

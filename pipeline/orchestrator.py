@@ -154,11 +154,62 @@ def reject_job(job_id: str) -> None:
     if not job:
         raise ValueError(f"Job not found: {job_id}")
     settings = get_settings()
-    src = Path(job["video_path"])
-    if src.exists():
+    src = Path(job["video_path"]) if job.get("video_path") else None
+    if src and src.exists():
         dest = settings["output_rejected"] / src.name
         shutil.move(str(src), str(dest))
     db.update_job(job_id, status="rejected")
+
+
+def _unlink(path: Path) -> None:
+    if path.exists():
+        path.unlink()
+
+
+def _remove_job_artifacts(job: dict) -> None:
+    settings = get_settings()
+    job_id = job["id"]
+
+    video_path = job.get("video_path")
+    if video_path:
+        vp = Path(video_path)
+        _unlink(vp)
+        _unlink(vp.with_suffix(".json"))
+        _unlink(vp.with_suffix(".metadata.json"))
+
+    work_dir = job.get("work_dir")
+    if work_dir:
+        wd = Path(work_dir)
+        if wd.is_dir():
+            shutil.rmtree(wd, ignore_errors=True)
+
+    default_work = settings["root"] / "assets" / "output" / ".work" / job_id
+    if default_work.is_dir():
+        shutil.rmtree(default_work, ignore_errors=True)
+
+    for folder in (
+        settings["output_pending"],
+        settings["output_approved"],
+        settings["output_rejected"],
+    ):
+        if not folder.is_dir():
+            continue
+        for path in folder.glob(f"{job_id}_*"):
+            if path.is_file():
+                path.unlink()
+            elif path.is_dir():
+                shutil.rmtree(path, ignore_errors=True)
+
+
+def delete_job(job_id: str) -> None:
+    job = db.get_job(job_id)
+    if not job:
+        raise ValueError(f"Job not found: {job_id}")
+    if job["status"] in ("generating", "uploading"):
+        raise ValueError("Cannot delete a job while it is running")
+    _remove_job_artifacts(job)
+    if not db.delete_job(job_id):
+        raise ValueError(f"Job not found: {job_id}")
 
 
 def publish_job(job_id: str, publish_at: str | None = None) -> str:

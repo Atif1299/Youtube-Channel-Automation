@@ -128,6 +128,19 @@
     </div>
   </div>
 
+  <!-- Delete confirm -->
+  <div class="overlay hidden" id="delete-overlay" aria-hidden="true">
+    <div class="modal modal-sm" role="dialog">
+      <h2>Delete this run?</h2>
+      <p id="delete-confirm-text">This removes the job, video files, and work data from this app. This cannot be undone.</p>
+      <p class="hint hidden" id="delete-youtube-note">The video will remain on YouTube if already published.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="delete-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="delete-confirm">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 

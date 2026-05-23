@@ -162,6 +162,12 @@ def list_jobs(status: str | None = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def delete_job(job_id: str) -> bool:
+    with _connect() as conn:
+        cur = conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+    return cur.rowcount > 0
+
+
 def job_script(job: dict) -> dict | None:
     if not job.get("script_json"):
         return None
