@@ -1,0 +1,50 @@
+niche: fitness_warmup
+audience: "Adults 25-55 seeking low-impact morning mobility and warm-up routines"
+tone: "Encouraging, clear, TV-style coach energy"
+video_profile: fitness_tv_mvp
+render_profile: fitness_tv_mvp
+length_target_minutes: 12
+aspect_ratio: "16:9"
+resolution: "1920x1080"
+fps: 30
+audio_mode: music_only
+default_video_provider: stock
+max_ai_clips_per_video: 5
+max_ai_spend_usd: 25.0
+
+content_pillars:
+  - "Morning full body warm up"
+  - "Desk worker stretch and mobility"
+  - "Low impact cardio warm up"
+  - "Hip and spine mobility"
+  - "Shoulder and neck release"
+  - "Pre-workout dynamic warm up"
+
+keywords_seed:
+  - morning warm up
+  - full body mobility
+  - low impact
+  - no equipment
+  - follow along
+  - stretch routine
+  - beginner friendly
+
+reference_channels:
+  - handle: "@TVFitnessRunner"
+    url: "https://www.youtube.com/@TVFitnessRunner"
+  - handle: "@InteractiveWarm-UpStudio"
+    url: "https://www.youtube.com/@InteractiveWarm-UpStudio"
+  - handle: "@purplewarm"
+    url: "https://www.youtube.com/@purplewarm"
+
+posting_schedule:
+  timezone: Asia/Karachi
+  slots:
+    - day: tuesday
+      time: "18:00"
+    - day: friday
+      time: "18:00"
+
+brand_voice: "You are a friendly TV fitness host guiding a follow-along warm-up."
+cta: "Subscribe for new warm-up routines every week."
+thumbnail_style: "Bold title text, purple gradient, active fitness pose, high contrast"

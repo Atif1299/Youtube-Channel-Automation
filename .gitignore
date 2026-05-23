@@ -1,0 +1,61 @@
+# Secrets & credentials
+.env
+.env.local
+client_secret.json
+client_secret*.json
+token.json
+credentials.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.so
+
+# Node (electron shell)
+node_modules/
+electron/node_modules/
+
+# Local runtime data
+data/*
+!data/.gitkeep
+
+# Generated media (large binaries)
+*.mp4
+*.mp3
+*.wav
+*.mov
+*.webm
+
+# User asset libraries (keep folder structure only)
+assets/clips/*
+!assets/clips/.gitkeep
+assets/music/*
+!assets/music/.gitkeep
+
+# Pipeline output (cache, work dirs, renders)
+assets/output/.cache/
+assets/output/.work/
+assets/output/pending_review/*
+!assets/output/pending_review/.gitkeep
+assets/output/approved/*
+!assets/output/approved/.gitkeep
+assets/output/rejected/*
+!assets/output/rejected/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Accidental shell artifacts
+$null

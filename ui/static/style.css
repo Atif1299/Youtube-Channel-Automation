@@ -1,0 +1,184 @@
+*
+{
+  box-sizing: border-box;
+}
+
+body
+{
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  background: #1a1a2e;
+  color: #eee;
+}
+
+header
+{
+  padding: 1rem 1.5rem;
+  background: #7b2cbf;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+header h1
+{
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+#status-bar
+{
+  font-size: 0.85rem;
+  opacity: 0.95;
+}
+
+.panel
+{
+  margin: 1rem 1.5rem;
+  padding: 1rem;
+  background: #16213e;
+  border-radius: 8px;
+}
+
+.panel h2
+{
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+#generate-form
+{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+#generate-form input
+{
+  flex: 1;
+  min-width: 200px;
+  padding: 0.5rem;
+}
+
+#generate-form select,
+button
+{
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button
+{
+  background: #7b2cbf;
+  color: #fff;
+}
+
+button:hover
+{
+  background: #9d4edd;
+}
+
+button.danger
+{
+  background: #c1121f;
+}
+
+button.secondary
+{
+  background: #444;
+}
+
+.hint
+{
+  font-size: 0.8rem;
+  color: #aaa;
+  margin-bottom: 0;
+}
+
+.actions
+{
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.job
+{
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: #0f3460;
+}
+
+.job-header
+{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.job-id
+{
+  font-family: monospace;
+  color: #e0aaff;
+}
+
+.badge
+{
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: #444;
+}
+
+.badge.pending_review
+{
+  background: #f77f00;
+}
+
+.badge.approved
+{
+  background: #2a9d8f;
+}
+
+.badge.generating
+{
+  background: #3a86ff;
+}
+
+.badge.failed
+{
+  background: #c1121f;
+}
+
+.badge.published
+{
+  background: #06d6a0;
+  color: #111;
+}
+
+.job-actions
+{
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+video
+{
+  max-width: 100%;
+  margin-top: 0.5rem;
+  border-radius: 4px;
+}
+
+.meta
+{
+  font-size: 0.8rem;
+  color: #bbb;
+  margin-top: 0.25rem;
+}
