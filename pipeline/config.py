@@ -32,6 +32,7 @@ def get_settings() -> dict:
         "default_llm": os.getenv("DEFAULT_LLM", "openai"),
         "default_tts": os.getenv("DEFAULT_TTS", "openai"),
         "default_video_provider": os.getenv("DEFAULT_VIDEO_PROVIDER", "stock"),
+        "veo_model": os.getenv("VEO_MODEL", "veo-3.0-generate-001"),
         "local_clips_dir": _path_from_env("LOCAL_CLIPS_DIR", "assets/clips"),
         "music_library_dir": _path_from_env("MUSIC_LIBRARY_DIR", "assets/music"),
         "output_pending": ROOT / "assets/output/pending_review",

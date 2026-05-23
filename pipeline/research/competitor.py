@@ -5,60 +5,68 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-import httpx
-
 from pipeline.config import get_settings, load_niche
+from pipeline.research.youtube_client import YOUTUBE_API, YouTubeResearchError, youtube_get
 
-YOUTUBE_API = "https://www.googleapis.com/youtube/v3"
+__all__ = [
+    "YOUTUBE_API",
+    "YouTubeResearchError",
+    "refresh_competitor_cache",
+    "load_competitor_context",
+    "_handle_to_channel_id",
+    "_channel_uploads_playlist",
+    "_video_details",
+    "_parse_duration",
+]
 
 
 def _handle_to_channel_id(handle: str, api_key: str) -> str | None:
     handle = handle.lstrip("@")
-    params = {"part": "id", "forHandle": handle, "key": api_key}
-    with httpx.Client(timeout=30) as client:
-        resp = client.get(f"{YOUTUBE_API}/channels", params=params)
-        resp.raise_for_status()
-        items = resp.json().get("items", [])
+    data = youtube_get("channels", {"part": "id", "forHandle": handle}, api_key)
+    items = data.get("items", [])
     return items[0]["id"] if items else None
 
 
 def _channel_uploads_playlist(channel_id: str, api_key: str) -> str | None:
-    params = {"part": "contentDetails", "id": channel_id, "key": api_key}
-    with httpx.Client(timeout=30) as client:
-        resp = client.get(f"{YOUTUBE_API}/channels", params=params)
-        resp.raise_for_status()
-        items = resp.json().get("items", [])
+    data = youtube_get("channels", {"part": "contentDetails", "id": channel_id}, api_key)
+    items = data.get("items", [])
     if not items:
         return None
     return items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
 
 
-def _playlist_videos(playlist_id: str, api_key: str, max_results: int = 15) -> list[str]:
-    params = {
-        "part": "contentDetails",
-        "playlistId": playlist_id,
-        "maxResults": max_results,
-        "key": api_key,
-    }
-    with httpx.Client(timeout=30) as client:
-        resp = client.get(f"{YOUTUBE_API}/playlistItems", params=params)
-        resp.raise_for_status()
-        items = resp.json().get("items", [])
-    return [i["contentDetails"]["videoId"] for i in items if "videoId" in i["contentDetails"]]
+def _playlist_videos(playlist_id: str, api_key: str, max_results: int = 50) -> list[str]:
+    video_ids: list[str] = []
+    page_token: str | None = None
+    while len(video_ids) < max_results:
+        batch = min(50, max_results - len(video_ids))
+        params: dict = {
+            "part": "contentDetails",
+            "playlistId": playlist_id,
+            "maxResults": batch,
+        }
+        if page_token:
+            params["pageToken"] = page_token
+        data = youtube_get("playlistItems", params, api_key)
+        for item in data.get("items", []):
+            vid = item.get("contentDetails", {}).get("videoId")
+            if vid:
+                video_ids.append(vid)
+        page_token = data.get("nextPageToken")
+        if not page_token:
+            break
+    return video_ids
 
 
 def _video_details(video_ids: list[str], api_key: str) -> list[dict]:
     if not video_ids:
         return []
-    params = {
-        "part": "snippet,contentDetails,statistics",
-        "id": ",".join(video_ids),
-        "key": api_key,
-    }
-    with httpx.Client(timeout=30) as client:
-        resp = client.get(f"{YOUTUBE_API}/videos", params=params)
-        resp.raise_for_status()
-        return resp.json().get("items", [])
+    data = youtube_get(
+        "videos",
+        {"part": "snippet,contentDetails,statistics", "id": ",".join(video_ids)},
+        api_key,
+    )
+    return data.get("items", [])
 
 
 def _parse_duration(iso: str) -> int:
@@ -88,7 +96,7 @@ def refresh_competitor_cache() -> Path:
         playlist = _channel_uploads_playlist(channel_id, api_key)
         if not playlist:
             continue
-        video_ids = _playlist_videos(playlist, api_key)
+        video_ids = _playlist_videos(playlist, api_key, max_results=50)
         details = _video_details(video_ids, api_key)
         videos = []
         for v in details:

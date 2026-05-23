@@ -8,6 +8,13 @@ let initialSelectDone = false;
 let pendingPublishJobId = null;
 let pendingDeleteJobId = null;
 let jobMetadataCache = {};
+let lastEnvCheck = null;
+let activeView = "studio";
+let allIdeas = [];
+let allDrafts = [];
+let selectedIdeaId = null;
+let selectedDraftId = null;
+let trendingData = [];
 
 const PLAYABLE_STATUSES = ["pending_review", "approved", "published", "scheduled"];
 
@@ -82,6 +89,8 @@ async function loadCheck() {
   checklist.innerHTML = [
     checklistItem("OpenAI API key", c.openai),
     checklistItem("Pexels API key", c.pexels),
+    checklistItem("Gemini / Veo 3", c.gemini),
+    checklistItem("YouTube Data API (research)", c.youtube_api),
     checklistItem("FFmpeg", c.ffmpeg, c.ffmpeg_msg),
     checklistItem("YouTube OAuth", c.youtube_oauth),
     checklistItem(`Music tracks (${c.music_tracks || 0})`, (c.music_tracks || 0) > 0),
@@ -100,7 +109,44 @@ async function loadCheck() {
     setup.classList.add("hidden");
     issues.innerHTML = "";
   }
+  lastEnvCheck = c;
+  updatePremiumHint();
+  updateResearchHint();
   return c;
+}
+
+function updateResearchHint() {
+  const hint = document.getElementById("research-api-hint");
+  if (!hint) return;
+  if (lastEnvCheck && !lastEnvCheck.youtube_api) {
+    hint.textContent = "Add YOUTUBE_API_KEY to .env for trending research (separate from YouTube OAuth upload).";
+  } else {
+    hint.textContent = "Trending uses publish date + view count ranking (competitors + niche keywords).";
+  }
+}
+
+function switchView(view) {
+  activeView = view;
+  document.querySelectorAll(".app-nav-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.view === view);
+  });
+  document.getElementById("studio-sidebar")?.classList.toggle("hidden", view !== "studio");
+  document.getElementById("research-sidebar")?.classList.toggle("hidden", view !== "research");
+  document.getElementById("studio-pane")?.classList.toggle("hidden", view !== "studio");
+  document.getElementById("research-pane")?.classList.toggle("hidden", view !== "research");
+  document.getElementById("btn-new-video").classList.toggle("hidden", view !== "studio");
+  if (view === "research") {
+    loadIdeas();
+    loadDrafts();
+  }
+}
+
+function updatePremiumHint() {
+  const hint = document.getElementById("premium-hint");
+  const mode = document.getElementById("video-mode")?.value;
+  if (!hint) return;
+  const show = mode === "premium" && lastEnvCheck && !lastEnvCheck.gemini;
+  hint.classList.toggle("hidden", !show);
 }
 
 function checklistItem(label, ok, detail) {
@@ -113,6 +159,15 @@ function checklistItem(label, ok, detail) {
 function progressBar(pct) {
   const p = Math.min(100, Math.max(0, pct || 0));
   return `<div class="progress"><div class="progress-fill" style="width:${p}%"></div></div>`;
+}
+
+function _releaseVideoPlayer() {
+  document.querySelectorAll("video[data-job-id]").forEach((v) => {
+    v.pause();
+    v.removeAttribute("src");
+    while (v.firstChild) v.removeChild(v.firstChild);
+    v.load();
+  });
 }
 
 function _saveVideoState() {
@@ -300,11 +355,11 @@ function renderDetail(job) {
     <div class="detail-header">
       <div class="detail-header-top">
         <h2>${escapeHtml(job.topic || "Untitled")}</h2>
-        ${
+        <button type="button" class="btn btn-danger btn-sm" data-action="delete">${
           job.status === "generating" || job.status === "uploading"
-            ? ""
-            : `<button type="button" class="btn btn-danger btn-sm" data-action="delete">Delete</button>`
-        }
+            ? "Cancel & delete"
+            : "Delete"
+        }</button>
       </div>
       <div class="detail-meta-row">
         <span class="badge ${job.status}">${statusLabel(job.status)}</span>
@@ -378,6 +433,7 @@ function openNewVideoModal() {
   const overlay = document.getElementById("modal-overlay");
   overlay.classList.remove("hidden");
   overlay.setAttribute("aria-hidden", "false");
+  updatePremiumHint();
   document.getElementById("topic").focus();
 }
 
@@ -423,9 +479,14 @@ function openDeleteConfirm(jobId) {
   pendingDeleteJobId = jobId;
   const job = allJobs.find((j) => j.id === jobId);
   const text = document.getElementById("delete-confirm-text");
-  text.textContent = job?.topic
-    ? `Delete "${job.topic}" and remove all local files for this run? This cannot be undone.`
-    : "This removes the job, video files, and work data from this app. This cannot be undone.";
+  const active = job?.status === "generating" || job?.status === "uploading";
+  text.textContent = active
+    ? job?.topic
+      ? `Stop "${job.topic}" and remove all files for this run?`
+      : "Stop this run and remove all local files?"
+    : job?.topic
+      ? `Delete "${job.topic}" and remove all local files for this run? This cannot be undone.`
+      : "This removes the job, video files, and work data from this app. This cannot be undone.";
   const ytNote = document.getElementById("delete-youtube-note");
   const onYoutube = job?.status === "published" || job?.status === "scheduled";
   ytNote.classList.toggle("hidden", !onYoutube);
@@ -442,6 +503,8 @@ function closeDeleteConfirm() {
 }
 
 async function deleteJob(id) {
+  _releaseVideoPlayer();
+  await new Promise((r) => setTimeout(r, 150));
   try {
     const r = await fetch(`${API}/api/jobs/${id}`, { method: "DELETE" });
     const d = await r.json();
@@ -472,18 +535,26 @@ async function startGenerate() {
   const topic = document.getElementById("topic").value.trim();
   const duration = parseInt(document.getElementById("duration").value, 10);
   const audio_mode = document.getElementById("audio").value;
+  const video_mode = document.getElementById("video-mode").value;
   const btn = document.getElementById("btn-generate");
   btn.disabled = true;
   try {
     const r = await fetch(`${API}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic, duration, audio_mode }),
+      body: JSON.stringify({ topic, duration, audio_mode, video_mode }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || "Generate failed");
     closeNewVideoModal();
-    toast(duration === 1 ? "Quick test started." : "Generation started.", "success");
+    toast(
+      video_mode === "premium"
+        ? "Premium generation started (Veo 3 + Pexels fallback)."
+        : duration === 1
+          ? "Quick test started."
+          : "Generation started.",
+      "success"
+    );
     if (d.job_id) {
       selectedJobId = d.job_id;
       initialSelectDone = true;
@@ -497,9 +568,12 @@ async function startGenerate() {
 }
 
 async function approve(id) {
+  _releaseVideoPlayer();
+  await new Promise((r) => setTimeout(r, 150));
   const r = await fetch(`${API}/api/jobs/${id}/approve`, { method: "POST" });
   if (!r.ok) {
-    toast((await r.json()).detail, "error");
+    const d = await r.json().catch(() => ({}));
+    toast(d.detail || "Approve failed", "error");
   } else {
     toast("Approved — metadata generated.", "success");
     delete jobMetadataCache[id];
@@ -509,6 +583,8 @@ async function approve(id) {
 }
 
 async function reject(id) {
+  _releaseVideoPlayer();
+  await new Promise((r) => setTimeout(r, 150));
   const r = await fetch(`${API}/api/jobs/${id}/reject`, { method: "POST" });
   if (!r.ok) toast((await r.json()).detail, "error");
   else toast("Rejected.", "info");
@@ -578,6 +654,7 @@ document.getElementById("drawer-overlay").onclick = (e) => {
 
 document.getElementById("preset-quick").onclick = () => applyPreset(true);
 document.getElementById("preset-standard").onclick = () => applyPreset(false);
+document.getElementById("video-mode").onchange = updatePremiumHint;
 
 document.getElementById("generate-form").onsubmit = async (e) => {
   e.preventDefault();
@@ -613,16 +690,10 @@ document.querySelectorAll(".filter-tab").forEach((tab) => {
   };
 });
 
-document.getElementById("btn-research").onclick = async () => {
-  try {
-    const r = await fetch(`${API}/api/research`, { method: "POST" });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || "Failed");
-    toast("Competitor cache updated", "success");
-  } catch (err) {
-    toast(err.message, "error");
-  }
-};
+document.getElementById("btn-research")?.remove();
+
+document.getElementById("nav-studio").onclick = () => switchView("studio");
+document.getElementById("nav-research").onclick = () => switchView("research");
 
 document.getElementById("btn-auth").onclick = async () => {
   toast("Complete sign-in in the browser window…", "info");

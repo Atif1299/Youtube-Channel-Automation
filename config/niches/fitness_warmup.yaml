@@ -11,6 +11,7 @@ audio_mode: music_only
 default_video_provider: stock
 max_ai_clips_per_video: 5
 max_ai_spend_usd: 25.0
+segment_transition_sec: 0.4
 
 content_pillars:
   - "Morning full body warm up"

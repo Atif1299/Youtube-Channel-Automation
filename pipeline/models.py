@@ -5,6 +5,15 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class VisualBible(BaseModel):
+    setting: str = ""
+    subject: str = ""
+    wardrobe: str = ""
+    camera_style: str = ""
+    lighting: str = ""
+    color_palette: str = ""
+
+
 class Scene(BaseModel):
     id: int
     exercise: str
@@ -12,6 +21,7 @@ class Scene(BaseModel):
     on_screen_text: str
     voiceover: str = ""
     visual_prompt: str = ""
+    continuity_note: str = ""
     negative_prompt: str = "warped limbs, blurry, watermark"
     provider: Literal["stock", "veo", "hailuo", "kling"] = "stock"
     stock_query: str = ""
@@ -22,6 +32,7 @@ class VideoScript(BaseModel):
     topic: str
     total_duration_sec: int
     audio_mode: Literal["music_only", "coach_voice"] = "music_only"
+    visual_bible: VisualBible = Field(default_factory=VisualBible)
     scenes: list[Scene]
 
 

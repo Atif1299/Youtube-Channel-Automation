@@ -18,22 +18,38 @@
       <div class="sidebar-header">
         <div class="brand">
           <h1>Fitness Warm-Up TV</h1>
-          <p class="brand-sub">Video studio</p>
+          <p class="brand-sub">YouTube Automations</p>
+        </div>
+        <div class="app-nav" role="tablist">
+          <button type="button" class="app-nav-btn active" data-view="studio" id="nav-studio">Video studio</button>
+          <button type="button" class="app-nav-btn" data-view="research" id="nav-research">Research</button>
         </div>
         <button type="button" id="btn-new-video" class="btn btn-primary btn-block">+ New video</button>
       </div>
 
-      <div class="filter-tabs" role="tablist">
-        <button type="button" class="filter-tab active" data-filter="all">All</button>
-        <button type="button" class="filter-tab" data-filter="active">Active</button>
-        <button type="button" class="filter-tab" data-filter="review">Review</button>
-        <button type="button" class="filter-tab" data-filter="approved">Approved</button>
-        <button type="button" class="filter-tab" data-filter="done">Done</button>
-        <button type="button" class="filter-tab" data-filter="failed">Failed</button>
+      <div id="studio-sidebar">
+        <div class="filter-tabs" role="tablist">
+          <button type="button" class="filter-tab active" data-filter="all">All</button>
+          <button type="button" class="filter-tab" data-filter="active">Active</button>
+          <button type="button" class="filter-tab" data-filter="review">Review</button>
+          <button type="button" class="filter-tab" data-filter="approved">Approved</button>
+          <button type="button" class="filter-tab" data-filter="done">Done</button>
+          <button type="button" class="filter-tab" data-filter="failed">Failed</button>
+        </div>
+
+        <div id="job-list" class="job-list">
+          <p class="list-empty">Loading…</p>
+        </div>
       </div>
 
-      <div id="job-list" class="job-list">
-        <p class="list-empty">Loading…</p>
+      <div id="research-sidebar" class="hidden">
+        <div class="research-sidebar-head">
+          <h3>Saved ideas</h3>
+          <button type="button" id="btn-new-idea" class="btn btn-secondary btn-sm">+ Idea</button>
+        </div>
+        <div id="ideas-list" class="job-list">
+          <p class="list-empty">No ideas yet. Save from trending.</p>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -42,12 +58,86 @@
     </aside>
 
     <main class="detail-pane" id="detail-pane">
-      <div class="detail-empty" id="detail-empty">
-        <h2>Select a video</h2>
-        <p>Choose a job from the inbox or create a new one.</p>
-        <button type="button" id="btn-empty-create" class="btn btn-primary">Create video</button>
+      <div id="studio-pane">
+        <div class="detail-empty" id="detail-empty">
+          <h2>Select a video</h2>
+          <p>Choose a job from the inbox or create a new one.</p>
+          <button type="button" id="btn-empty-create" class="btn btn-primary">Create video</button>
+        </div>
+        <div class="detail-content hidden" id="detail-content"></div>
       </div>
-      <div class="detail-content hidden" id="detail-content"></div>
+
+      <div id="research-pane" class="research-pane hidden">
+        <div class="research-toolbar">
+          <h2>Research workspace</h2>
+          <div class="research-controls">
+            <label class="field-inline">
+              <span>Period</span>
+              <select id="research-period">
+                <option value="today">Today</option>
+                <option value="7d" selected>Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="90d">Last 90 days</option>
+              </select>
+            </label>
+            <label class="field-inline">
+              <span>Source</span>
+              <select id="research-source">
+                <option value="both" selected>Competitors + niche</option>
+                <option value="competitors">Competitors only</option>
+                <option value="niche">Niche search</option>
+              </select>
+            </label>
+            <input type="text" id="research-query" class="research-query" placeholder="Niche keywords (optional)" />
+            <button type="button" id="btn-load-trending" class="btn btn-primary btn-sm">Load trending</button>
+            <button type="button" id="btn-refresh-research" class="btn btn-secondary btn-sm">Refresh cache</button>
+          </div>
+          <p class="hint" id="research-api-hint"></p>
+        </div>
+
+        <div class="research-grid">
+          <section class="research-section">
+            <h3>Trending videos</h3>
+            <div id="trending-table" class="trending-table">
+              <p class="list-empty">Click Load trending to fetch videos.</p>
+            </div>
+          </section>
+
+          <section class="research-section research-draft-panel">
+            <h3>Draft workspace</h3>
+            <p class="draft-idea-title hidden" id="draft-idea-title"></p>
+            <div id="draft-toolbar" class="draft-toolbar hidden">
+              <label class="field-inline draft-field">
+                <span>Editing draft</span>
+                <select id="draft-select-a"></select>
+              </label>
+              <div id="draft-compare-wrap" class="draft-compare-wrap hidden">
+                <label class="field-inline draft-field">
+                  <span>Compare with</span>
+                  <select id="draft-select-b"></select>
+                </label>
+                <button type="button" id="btn-compare-drafts" class="btn btn-secondary btn-sm">Compare</button>
+              </div>
+            </div>
+            <div id="draft-compare" class="draft-compare hidden"></div>
+            <div id="draft-scenes" class="draft-scenes hidden">
+              <h4>Scenes <span id="draft-label"></span></h4>
+              <div class="scene-list-wrap">
+                <div id="scene-list"></div>
+              </div>
+              <div class="draft-actions">
+                <button type="button" id="btn-save-draft-scenes" class="btn btn-secondary btn-sm">Save scene
+                  edits</button>
+                <button type="button" id="btn-generate-from-draft" class="btn btn-primary btn-sm">Generate
+                  video</button>
+                <button type="button" id="btn-generate-draft-script" class="btn btn-secondary btn-sm">New script
+                  draft</button>
+              </div>
+            </div>
+            <p class="list-empty" id="draft-empty">Select an idea, then click New script draft.</p>
+          </section>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -82,6 +172,17 @@
             </select>
           </label>
         </div>
+        <div class="field-row">
+          <label class="field">
+            <span>Video source</span>
+            <select id="video-mode">
+              <option value="stock" selected>Stock (Pexels)</option>
+              <option value="premium">Premium (Veo 3 + Pexels fallback)</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint hidden" id="premium-hint">Add GEMINI_API_KEY to .env for Veo 3. Without it, Premium uses Pexels
+          only.</p>
         <div class="presets">
           <span class="presets-label">Presets:</span>
           <button type="button" class="btn btn-secondary btn-sm" id="preset-quick">Quick test (1 min)</button>
@@ -111,7 +212,6 @@
       <ul class="checklist" id="env-checklist"></ul>
       <div class="drawer-actions">
         <button type="button" id="btn-auth" class="btn btn-secondary btn-block">Connect YouTube</button>
-        <button type="button" id="btn-research" class="btn btn-secondary btn-block">Refresh competitor research</button>
       </div>
     </aside>
   </div>
@@ -132,7 +232,8 @@
   <div class="overlay hidden" id="delete-overlay" aria-hidden="true">
     <div class="modal modal-sm" role="dialog">
       <h2>Delete this run?</h2>
-      <p id="delete-confirm-text">This removes the job, video files, and work data from this app. This cannot be undone.</p>
+      <p id="delete-confirm-text">This removes the job, video files, and work data from this app. This cannot be undone.
+      </p>
       <p class="hint hidden" id="delete-youtube-note">The video will remain on YouTube if already published.</p>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" id="delete-cancel">Cancel</button>
@@ -142,6 +243,7 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="research.js"></script>
 </body>
 
 </html>

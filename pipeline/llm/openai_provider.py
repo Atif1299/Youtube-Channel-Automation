@@ -13,7 +13,7 @@ class OpenAIProvider(LLMProvider):
         settings = get_settings()
         if not settings["openai_api_key"]:
             raise ValueError("OPENAI_API_KEY is not set in .env")
-        self.client = OpenAI(api_key=settings["openai_api_key"])
+        self.client = OpenAI(api_key=settings["openai_api_key"], timeout=120.0)
 
     def complete_json(self, system: str, user: str) -> dict:
         response = self.client.chat.completions.create(
