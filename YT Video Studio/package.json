@@ -1,0 +1,62 @@
+{
+  "name": "yt-video-studio",
+  "version": "1.0.0",
+  "description": "YouTube video automation - research, create, and publish videos",
+  "author": "YT Video Studio",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "engine": "python engine.py",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.ytvideostudio.app",
+    "productName": "YT Video Studio",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "renderer.js",
+      "styles.css",
+      "package.json",
+      "engine.py",
+      "requirements.txt",
+      "config/**/*",
+      "prompts/**/*"
+    ],
+    "extraResources": [
+      "assets/music",
+      "assets/clips"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

@@ -1,10 +1,15 @@
 # Secrets & credentials
 .env
 .env.local
-client_secret.json
-client_secret*.json
+.env.*.local
+!.env.example
 token.json
 credentials.json
+client_secret.json
+client_secret*.json
+google-client-id.json
+!google-client-id.example.json
+google-client-secret.json
 
 # Python
 .venv/
@@ -17,13 +22,16 @@ __pycache__/
 .ruff_cache/
 *.so
 
-# Node (electron shell)
+# Node / Electron
 node_modules/
-electron/node_modules/
+dist/
+out/
+*.log
 
 # Local runtime data
-data/*
-!data/.gitkeep
+**/data/*
+!**/data/.gitkeep
+*.db
 
 # Generated media (large binaries)
 *.mp4
@@ -33,20 +41,22 @@ data/*
 *.webm
 
 # User asset libraries (keep folder structure only)
-assets/clips/*
-!assets/clips/.gitkeep
-assets/music/*
-!assets/music/.gitkeep
+**/assets/clips/*
+!**/assets/clips/.gitkeep
+**/assets/music/*
+!**/assets/music/.gitkeep
 
 # Pipeline output (cache, work dirs, renders)
-assets/output/.cache/
-assets/output/.work/
-assets/output/pending_review/*
-!assets/output/pending_review/.gitkeep
-assets/output/approved/*
-!assets/output/approved/.gitkeep
-assets/output/rejected/*
-!assets/output/rejected/.gitkeep
+**/assets/output/.cache/
+**/assets/output/.work/
+**/assets/output/pending_review/*
+!**/assets/output/pending_review/.gitkeep
+**/assets/output/pending/*
+!**/assets/output/pending/.gitkeep
+**/assets/output/approved/*
+!**/assets/output/approved/.gitkeep
+**/assets/output/rejected/*
+!**/assets/output/rejected/.gitkeep
 
 # OS / editor
 .DS_Store
@@ -54,6 +64,7 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 

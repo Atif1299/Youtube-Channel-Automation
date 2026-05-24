@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; media-src 'self' http://127.0.0.1:*" />
+  <title>YT Video Studio</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="shell">
+    <header class="titlebar" role="banner">
+      <div class="titlebar-left">
+        <div class="app-mark" aria-hidden="true">▶</div>
+        <div>
+          <h1 class="app-title">YT Video Studio</h1>
+          <p class="app-tagline">Research, create, and publish YouTube videos</p>
+        </div>
+      </div>
+      <div class="titlebar-right">
+        <div class="auth-cluster">
+          <span id="envStatus" class="status-pill">Checking...</span>
+          <button id="openSettings" type="button" class="btn btn-outline btn-sm">Settings</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="workarea" role="main">
+      <div id="view-loading" class="empty">
+        <p class="empty-title">Starting engine...</p>
+        <p class="empty-text">Please wait while the Python backend initializes.</p>
+      </div>
+
+      <div id="view-main" class="stepper" hidden>
+        <nav class="steps" aria-label="Steps">
+          <button id="stepBtn1" type="button" class="step is-active" data-step="1">
+            <span class="step-num">1</span>
+            <span class="step-text">Research</span>
+          </button>
+          <button id="stepBtn2" type="button" class="step" data-step="2">
+            <span class="step-num">2</span>
+            <span class="step-text">Script</span>
+          </button>
+          <button id="stepBtn3" type="button" class="step" data-step="3">
+            <span class="step-num">3</span>
+            <span class="step-text">Render</span>
+          </button>
+          <button id="stepBtn4" type="button" class="step" data-step="4">
+            <span class="step-num">4</span>
+            <span class="step-text">Publish</span>
+          </button>
+        </nav>
+
+        <!-- STEP 1: RESEARCH -->
+        <section id="step1" class="step-view">
+          <div class="search-top">
+            <div class="field field-mini">
+              <label class="mini-label" for="researchPeriod">Period</label>
+              <select id="researchPeriod" class="input mini-input">
+                <option value="7d" selected>7 days</option>
+                <option value="today">Today</option>
+                <option value="30d">30 days</option>
+                <option value="90d">90 days</option>
+              </select>
+            </div>
+            <div class="field field-mini">
+              <label class="mini-label" for="researchSource">Source</label>
+              <select id="researchSource" class="input mini-input">
+                <option value="both" selected>Both</option>
+                <option value="competitors">Competitors</option>
+                <option value="niche">Niche search</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="mini-label" for="researchQuery">Keywords (optional)</label>
+              <input id="researchQuery" type="text" class="input" placeholder="Override niche keywords..." />
+            </div>
+            <div class="field field-actions">
+              <button id="searchTrending" type="button" class="btn primary">Search</button>
+            </div>
+          </div>
+
+          <div class="step-body">
+            <div class="results wide">
+              <div id="trendingEmpty" class="results-empty">Click Search to load trending videos from competitors and
+                niche keywords.</div>
+              <div id="trendingList" class="results-list" role="list"></div>
+            </div>
+          </div>
+
+          <footer class="step-footer">
+            <div class="footer-left">
+              <button id="selectAllTrending" type="button" class="btn btn-outline btn-sm">Select all</button>
+              <button id="clearTrending" type="button" class="btn btn-outline btn-sm">Clear</button>
+            </div>
+            <div class="footer-right">
+              <button id="quickGenerate" type="button" class="btn btn-outline">Quick Generate</button>
+              <button id="toScript" type="button" class="btn primary">Use as Ideas →</button>
+            </div>
+          </footer>
+        </section>
+
+        <!-- STEP 2: SCRIPT -->
+        <section id="step2" class="step-view" hidden>
+          <div class="step-body split">
+            <div class="queue">
+              <div class="queue-head">
+                <div class="queue-title">Ideas</div>
+                <div class="queue-sub" id="ideasCount">0 ideas</div>
+              </div>
+              <div id="ideasList" class="queue-list"></div>
+              <div class="queue-add">
+                <input id="manualIdea" type="text" class="input" placeholder="Add manual idea..." />
+                <button id="addManualIdea" type="button" class="btn btn-outline btn-sm">Add</button>
+              </div>
+            </div>
+            <div class="editor">
+              <div class="editor-head">
+                <div class="editor-head-row">
+                  <div class="editor-title" id="scriptTitle">Select an idea</div>
+                </div>
+                <div class="editor-sub" id="scriptMeta"></div>
+              </div>
+              <div class="script-controls">
+                <div class="field field-mini">
+                  <label class="mini-label" for="scriptDuration">Duration (min)</label>
+                  <input id="scriptDuration" type="number" class="input mini-input" min="1" max="30" value="12" />
+                </div>
+                <div class="field field-mini">
+                  <label class="mini-label" for="scriptAudio">Audio</label>
+                  <select id="scriptAudio" class="input mini-input">
+                    <option value="coach_voice">Voice</option>
+                    <option value="music_only">Music</option>
+                  </select>
+                </div>
+                <div class="field field-mini">
+                  <label class="mini-label" for="scriptVideo">Video</label>
+                  <select id="scriptVideo" class="input mini-input">
+                    <option value="stock">Stock</option>
+                    <option value="premium">Premium (Veo)</option>
+                  </select>
+                </div>
+                <button id="generateScript" type="button" class="btn primary">Generate Script</button>
+              </div>
+              <div id="scriptEditor" class="script-editor">
+                <div class="scenes-empty">Generate a script to see scenes here.</div>
+              </div>
+            </div>
+          </div>
+          <footer class="step-footer">
+            <div class="footer-left">
+              <button id="backToResearch" type="button" class="btn btn-outline btn-sm">← Back</button>
+            </div>
+            <div class="footer-right">
+              <button id="toRender" type="button" class="btn primary">Render Video →</button>
+            </div>
+          </footer>
+        </section>
+
+        <!-- STEP 3: RENDER -->
+        <section id="step3" class="step-view" hidden>
+          <div class="step-body split">
+            <div class="queue">
+              <div class="queue-head">
+                <div class="queue-title">Jobs</div>
+                <div class="queue-sub" id="jobsCount">0 jobs</div>
+              </div>
+              <div id="jobsList" class="queue-list"></div>
+            </div>
+            <div class="editor">
+              <div class="editor-head">
+                <div class="editor-title" id="jobTitle">No job selected</div>
+                <div class="editor-sub" id="jobStatus"></div>
+              </div>
+              <div id="jobProgress" class="progress" hidden>
+                <div class="progress-head">
+                  <span id="jobProgressLabel" class="progress-label">Progress</span>
+                  <span id="jobProgressCount" class="progress-count">0%</span>
+                </div>
+                <div class="progress-bar">
+                  <div id="jobProgressFill" class="progress-fill" style="width: 0%"></div>
+                </div>
+              </div>
+              <div id="jobPreview" class="job-preview" hidden>
+                <video id="previewVideo" controls class="preview-video"></video>
+              </div>
+              <div class="job-actions">
+                <button id="cancelJob" type="button" class="btn btn-outline">Cancel</button>
+                <button id="deleteJob" type="button" class="btn btn-outline">Delete</button>
+              </div>
+            </div>
+          </div>
+          <footer class="step-footer">
+            <div class="footer-left">
+              <button id="backToScript" type="button" class="btn btn-outline btn-sm">← Back</button>
+            </div>
+            <div class="footer-right">
+              <button id="toPublish" type="button" class="btn primary">Review & Publish →</button>
+            </div>
+          </footer>
+        </section>
+
+        <!-- STEP 4: PUBLISH -->
+        <section id="step4" class="step-view" hidden>
+          <div class="step-body split">
+            <div class="queue">
+              <div class="queue-head">
+                <div class="queue-title">Pending Review</div>
+                <div class="queue-sub" id="pendingCount">0 videos</div>
+              </div>
+              <div id="pendingList" class="queue-list"></div>
+            </div>
+            <div class="editor">
+              <div class="editor-head">
+                <div class="editor-title" id="reviewTitle">Select a video</div>
+                <div class="editor-sub" id="reviewMeta"></div>
+              </div>
+              <div id="reviewPreview" class="job-preview" hidden>
+                <video id="reviewVideo" controls class="preview-video"></video>
+              </div>
+              <div id="reviewMetadata" class="review-metadata" hidden>
+                <div class="field">
+                  <label class="mini-label">Title</label>
+                  <div id="metaTitle" class="meta-value"></div>
+                </div>
+                <div class="field">
+                  <label class="mini-label">Description</label>
+                  <div id="metaDesc" class="meta-value meta-desc"></div>
+                </div>
+                <div class="field">
+                  <label class="mini-label">Tags</label>
+                  <div id="metaTags" class="meta-value"></div>
+                </div>
+              </div>
+              <div class="review-actions">
+                <button id="rejectBtn" type="button" class="btn btn-outline">Reject</button>
+                <button id="approveBtn" type="button" class="btn primary">Approve</button>
+              </div>
+              <div id="publishSection" class="publish-section" hidden>
+                <div class="field field-mini">
+                  <label class="mini-label" for="publishMode">Publish</label>
+                  <select id="publishMode" class="input mini-input">
+                    <option value="now">Now (Public)</option>
+                    <option value="scheduled">Schedule</option>
+                  </select>
+                </div>
+                <input id="publishDate" type="datetime-local" class="input" hidden />
+                <button id="publishBtn" type="button" class="btn primary">Publish to YouTube</button>
+              </div>
+              <div id="youtubeStatus" class="youtube-status">
+                <span id="ytConnected" class="status-pill" hidden>YouTube Connected</span>
+                <button id="connectYouTube" type="button" class="btn btn-outline btn-sm">Connect YouTube</button>
+              </div>
+            </div>
+          </div>
+          <footer class="step-footer">
+            <div class="footer-left">
+              <button id="backToRender" type="button" class="btn btn-outline btn-sm">← Back</button>
+            </div>
+            <div class="footer-right">
+              <span class="footer-text">Approve videos to enable publishing</span>
+            </div>
+          </footer>
+        </section>
+      </div>
+
+      <!-- Settings Modal -->
+      <div id="settingsModal" class="modal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-label="Settings">
+          <div class="modal-head">
+            <div>
+              <div class="modal-title">Settings</div>
+              <div class="modal-sub">Environment status and configuration</div>
+            </div>
+            <button id="closeSettings" class="btn btn-outline btn-sm" type="button">Close</button>
+          </div>
+          <div class="settings-block">
+            <label class="mini-label">Environment Check</label>
+            <div id="envChecklist" class="env-checklist"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Generate Modal -->
+      <div id="quickModal" class="modal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-card modal-small" role="dialog" aria-modal="true" aria-label="Quick Generate">
+          <div class="modal-head">
+            <div>
+              <div class="modal-title">Quick Generate</div>
+              <div class="modal-sub">Generate a video directly from a topic</div>
+            </div>
+            <button id="closeQuick" class="btn btn-outline btn-sm" type="button">Close</button>
+          </div>
+          <div class="field">
+            <label class="mini-label" for="quickTopic">Topic</label>
+            <input id="quickTopic" type="text" class="input" placeholder="e.g., Morning yoga routine" />
+          </div>
+          <div class="quick-options">
+            <div class="field field-mini">
+              <label class="mini-label" for="quickDuration">Duration</label>
+              <input id="quickDuration" type="number" class="input mini-input" min="1" max="30" value="12" />
+            </div>
+            <div class="field field-mini">
+              <label class="mini-label" for="quickAudio">Audio</label>
+              <select id="quickAudio" class="input mini-input">
+                <option value="coach_voice">Voice</option>
+                <option value="music_only">Music</option>
+              </select>
+            </div>
+            <div class="field field-mini">
+              <label class="mini-label" for="quickVideo">Video</label>
+              <select id="quickVideo" class="input mini-input">
+                <option value="stock">Stock</option>
+                <option value="premium">Premium</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button id="startQuickGenerate" type="button" class="btn primary">Generate Video</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+
+</html>

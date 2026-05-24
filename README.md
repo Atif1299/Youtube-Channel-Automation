@@ -1,6 +1,6 @@
 # YouTube Channel Automation
 
-Desktop app for automated TV-style fitness warm-up videos: **script → stock clips → FFmpeg render → human review → YouTube upload**.
+Desktop app for automated TV-style fitness warm-up videos: **script → stock clips (optional Veo) → FFmpeg render → human review → YouTube upload**.
 
 ## Architecture
 
@@ -46,7 +46,13 @@ Required in `.env`:
 | `OPENAI_API_KEY` | Script + TTS |
 | `PEXELS_API_KEY` | Stock clips |
 
-Optional: YouTube keys for research and upload.
+Optional:
+
+| Variable | Purpose |
+|----------|---------|
+| `GEMINI_API_KEY` | Veo 3 (Premium video mode) |
+| `YOUTUBE_API_KEY` | Trending research |
+| YouTube OAuth env vars | Upload to YouTube |
 
 ## Run the app
 
@@ -56,15 +62,25 @@ npm start
 
 The Electron window opens and starts the Python backend automatically.
 
-### Workflow in the app
+## Workflows (two equal paths)
 
-1. **Generate** — topic, duration, coach voice or music only
-2. **Review** — preview video, approve or reject
-3. **Publish** — upload to YouTube (now or scheduled)
-4. **Research** — refresh competitor cache (YouTube API)
-5. **OAuth** — connect YouTube for uploads
+### Path A — Video studio
 
-Progress stages show while a job is generating (script → clips → render → TTS → mix).
+1. **Create → Quick generate** — topic, duration, coach voice or music only, stock or premium
+2. Track progress under **Active**, then **Review**
+3. **Approve** or **Reject**
+4. **Publish** (now or scheduled) after OAuth in Settings
+
+### Path B — Research
+
+1. **Research** tab — load trending, save ideas
+2. **New script draft** — edit scenes if needed
+3. **Generate video** — switches to studio with the new job selected
+4. Same review → approve → publish flow as Path A
+
+See [TESTING.md](TESTING.md) for a full manual checklist and [AUDIT.md](AUDIT.md) for feature traces and architecture notes.
+
+Progress stages while generating: script → clips → render → TTS → mix.
 
 ## Optional assets
 
@@ -84,6 +100,8 @@ config/                 # Brand + niche YAML
 prompts/                # LLM prompts
 scripts/check_env.py    # Dev-only environment check
 assets/output/          # Generated videos (gitignored)
+AUDIT.md                # Codebase audit notes
+TESTING.md              # Manual test checklist
 ```
 
 ## Dev / debug
@@ -104,6 +122,7 @@ python backend/server.py
 ## Security
 
 - Never commit `.env` or real keys in `.env.example`
+- `client_secret.json` and `token.json` are gitignored
 - Rotate any key that was ever committed to git
 
 ## License

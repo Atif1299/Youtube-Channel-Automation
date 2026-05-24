@@ -1,9 +1,0 @@
-{
-  "name": "youtube-channel-automation",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "start": "cd electron && npm start",
-    "postinstall": "cd electron && npm install"
-  }
-}
