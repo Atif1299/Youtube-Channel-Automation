@@ -74,6 +74,7 @@ const publishBtn = document.getElementById("publishBtn");
 const ytConnected = document.getElementById("ytConnected");
 const connectYouTubeBtn = document.getElementById("connectYouTube");
 const backToRenderBtn = document.getElementById("backToRender");
+const step4FooterText = document.getElementById("step4FooterText");
 
 const quickModal = document.getElementById("quickModal");
 const closeQuickBtn = document.getElementById("closeQuick");
@@ -120,7 +121,6 @@ function setStep(n) {
   stepBtn4.classList.toggle("is-active", n === 4);
   if (n === 3) {
     refreshJobs();
-    startPolling();
   } else if (n === 4) {
     refreshPending();
     checkYouTubeStatus();
@@ -406,6 +406,28 @@ toRenderBtn.addEventListener("click", async () => {
   }
 });
 
+function setVideoSource(videoEl, jobId, url) {
+  if (videoEl.dataset.jobId !== jobId) {
+    videoEl.dataset.jobId = jobId;
+    videoEl.src = url;
+  }
+}
+
+function clearVideoSource(videoEl) {
+  delete videoEl.dataset.jobId;
+  videoEl.removeAttribute("src");
+  videoEl.load();
+}
+
+function syncJobPolling() {
+  const jobs = Array.isArray(state.jobs) ? state.jobs : [];
+  if (jobs.some((j) => j.status === "generating")) {
+    startPolling();
+  } else {
+    stopPolling();
+  }
+}
+
 async function refreshJobs() {
   const r = await window.api.listJobs();
   if (r.ok) {
@@ -415,6 +437,7 @@ async function refreshJobs() {
       if (state.selectedJobId) {
         updateSelectedJob();
       }
+      syncJobPolling();
     }
   }
 }
@@ -453,18 +476,20 @@ async function updateSelectedJob() {
     jobProgressCount.textContent = `${job.progress_pct || 0}%`;
     jobProgressFill.style.width = `${job.progress_pct || 0}%`;
     jobPreview.hidden = true;
+    clearVideoSource(previewVideo);
   } else if (job.status === "pending_review" || job.status === "approved" || job.status === "published") {
     jobProgress.hidden = true;
     if (job.video_path) {
       const url = await window.api.getVideoUrl(job.id);
       if (url.ok) {
-        previewVideo.src = url.url;
+        setVideoSource(previewVideo, job.id, url.url);
         jobPreview.hidden = false;
       }
     }
   } else {
     jobProgress.hidden = true;
     jobPreview.hidden = true;
+    clearVideoSource(previewVideo);
   }
 }
 
@@ -492,6 +517,8 @@ deleteJobBtn.addEventListener("click", async () => {
   if (!state.selectedJobId) return;
   await window.api.deleteJob(state.selectedJobId);
   state.selectedJobId = null;
+  clearVideoSource(previewVideo);
+  jobPreview.hidden = true;
   refreshJobs();
 });
 
@@ -542,9 +569,12 @@ async function updateSelectedPending() {
   if (job.video_path) {
     const url = await window.api.getVideoUrl(job.id);
     if (url.ok) {
-      reviewVideo.src = url.url;
+      setVideoSource(reviewVideo, job.id, url.url);
       reviewPreview.hidden = false;
     }
+  } else {
+    clearVideoSource(reviewVideo);
+    reviewPreview.hidden = true;
   }
   
   if (job.metadata_json) {
@@ -567,10 +597,12 @@ async function updateSelectedPending() {
     publishSection.hidden = false;
     rejectBtn.hidden = true;
     approveBtn.hidden = true;
+    step4FooterText.textContent = "Ready to publish — scroll down to use Publish to YouTube";
   } else {
     publishSection.hidden = true;
     rejectBtn.hidden = false;
     approveBtn.hidden = false;
+    step4FooterText.textContent = "Approve videos to enable publishing";
   }
 }
 

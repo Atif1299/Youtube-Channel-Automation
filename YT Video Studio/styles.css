@@ -451,6 +451,25 @@ body
   overflow: hidden;
 }
 
+.editor
+{
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.editor::-webkit-scrollbar
+{
+  width: 6px;
+}
+
+.editor::-webkit-scrollbar-thumb
+{
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+
 .queue-head
 {
   display: flex;
