@@ -13,6 +13,7 @@ Rules:
 - stock_query: short Pexels-friendly search phrase (3-6 words) for the same scene as fallback footage.
 - Provider is assigned automatically — do not include provider in JSON.
 - Sum of all scene duration_sec must equal total_duration_sec exactly.
+- When audio_mode is coach_voice: each scene voiceover must fill its duration_sec with spoken coaching (about 2–2.8 words per second). A 15s scene needs ~30–42 words of cues, not a single short line.
 - Title style: emulate competitor patterns when research context is provided (duration in title, pipe separators, warm-up/mobility keywords).
 - Total duration should match the requested minutes (±10%).
 

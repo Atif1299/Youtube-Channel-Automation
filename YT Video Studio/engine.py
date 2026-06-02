@@ -9,6 +9,7 @@ import concurrent.futures
 import json
 import logging
 import os
+import platform
 import random
 import shutil
 import sqlite3
@@ -302,6 +303,7 @@ Return JSON with this structure:
 }}
 Use 6-12 scenes for a {duration_minutes} minute video. First scene: intro. Last scene: closing.
 Sum of all duration_sec MUST equal total_duration_sec exactly.
+{_coach_voice_script_block(audio_mode)}
 """
     raw = llm_complete_json(system, user)
     raw["topic"] = topic
@@ -525,7 +527,55 @@ def probe_duration(path: Path) -> float | None:
 # =============================================================================
 
 def _escape_drawtext(text: str) -> str:
-    return text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'").replace("%", "\\%")
+    """Escape text for ffmpeg drawtext when wrapped in single quotes."""
+    text = text.replace("\\", "\\\\")
+    text = text.replace(":", "\\:")
+    text = text.replace("'", "\\'")
+    text = text.replace("%", "\\%")
+    return text
+
+
+def _escape_fontfile(path: Path) -> str:
+    """Escape a font path for drawtext fontfile='...' on Windows and Unix."""
+    s = path.resolve().as_posix()
+    if len(s) >= 2 and s[1] == ":":
+        s = s[0] + "\\:" + s[2:]
+    return s.replace("'", "\\'")
+
+
+@lru_cache(maxsize=1)
+def _drawtext_font_path() -> Path | None:
+    """System font for drawtext; avoids fontconfig crashes on Windows ffmpeg builds."""
+    if platform.system() == "Windows":
+        windir = Path(os.environ.get("WINDIR", r"C:\Windows"))
+        candidates = [windir / "Fonts" / "arial.ttf", windir / "Fonts" / "segoeui.ttf"]
+    elif platform.system() == "Darwin":
+        candidates = [
+            Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
+            Path("/Library/Fonts/Arial.ttf"),
+        ]
+    else:
+        candidates = [
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+        ]
+    return next((p for p in candidates if p.is_file()), None)
+
+
+def _build_drawtext_filter(
+    on_screen_text: str,
+    font_size: int,
+    text_color: str,
+    primary_color: str,
+    safe_bottom: int = 140,
+) -> str:
+    label = _escape_drawtext(_truncate_label(on_screen_text))
+    font = _drawtext_font_path()
+    font_opt = f"fontfile='{_escape_fontfile(font)}':" if font else ""
+    return (
+        f"drawtext={font_opt}text='{label}':fontsize={font_size}:fontcolor={text_color}"
+        f":box=1:boxcolor={primary_color}@0.85:boxborderw=12:x=(w-text_w)/2:y=h-{safe_bottom}"
+    )
 
 
 def _truncate_label(text: str, max_len: int = 48) -> str:
@@ -534,9 +584,8 @@ def _truncate_label(text: str, max_len: int = 48) -> str:
 
 
 def _prepare_scene_segment(scene: Scene, source: Path, out_path: Path, width: int, height: int, primary_color: str, font_size: int, text_color: str, fps: int, loop: bool = True) -> None:
-    label = _escape_drawtext(_truncate_label(scene.on_screen_text))
-    safe_bottom = 140
-    vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},drawtext=text='{label}':fontsize={font_size}:fontcolor={text_color}:box=1:boxcolor={primary_color}@0.85:boxborderw=12:x=(w-text_w)/2:y=h-{safe_bottom}"
+    drawtext = _build_drawtext_filter(scene.on_screen_text, font_size, text_color, primary_color)
+    vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},{drawtext}"
     cmd = []
     if loop:
         cmd.extend(["-stream_loop", "-1"])
@@ -559,9 +608,87 @@ def _pick_music() -> Path | None:
     return random.choice(tracks) if tracks else None
 
 
+def _voiceover_word_bounds(duration_sec: int) -> tuple[int, int]:
+    """Target spoken word count for TTS (~2.3 words/sec)."""
+    d = max(5, int(duration_sec))
+    return max(12, int(d * 2.0)), int(d * 2.8)
+
+
+_COACH_VOICE_FILLERS = (
+    "Keep your core gently engaged and breathe steadily.",
+    "Move with control — smooth on the way up and on the way down.",
+    "Relax your shoulders away from your ears.",
+    "Land softly through your knees, not stiff through the joints.",
+    "Match the pace of the group and listen to your body today.",
+)
+
+
+def _extend_voiceover_if_short(text: str, duration_sec: int) -> str:
+    """Pad undersized LLM voiceover lines so TTS can fill the scene."""
+    min_words, max_words = _voiceover_word_bounds(duration_sec)
+    words = text.split()
+    if len(words) >= min_words:
+        return text
+    extended = text.strip()
+    i = 0
+    while len(extended.split()) < min_words:
+        extended = f"{extended} {_COACH_VOICE_FILLERS[i % len(_COACH_VOICE_FILLERS)]}".strip()
+        i += 1
+        if i > 20:
+            break
+    cap = max_words + 4
+    w = extended.split()
+    if len(w) > cap:
+        extended = " ".join(w[:cap])
+    if len(words) < min_words:
+        log.warning(
+            "Scene voiceover expanded from %d to %d words (target %d for %ds)",
+            len(words),
+            len(extended.split()),
+            min_words,
+            duration_sec,
+        )
+    return extended
+
+
+def _coach_voice_script_block(audio_mode: str) -> str:
+    if audio_mode != "coach_voice":
+        return ""
+    return """
+Coach voice mode (required):
+- Every scene MUST have a non-empty voiceover that fills nearly all of duration_sec with spoken coaching.
+- Word count per scene: at least (duration_sec × 2.0) words, up to (duration_sec × 2.8) words.
+  Example: 15s scene → 30–42 words of continuous cues (setup, reps, form, breathing, pacing).
+- Do NOT write one short sentence for a long scene; avoid long silent gaps in the final video.
+- Match voiceover content to on_screen_text and the exercise for that scene.
+"""
+
+
+def _atempo_filters_to_fill(spoken_sec: float, target_sec: float) -> str:
+    """Slow TTS slightly when the clip is shorter than the scene (atempo range 0.5–2.0)."""
+    if spoken_sec <= 0.05 or spoken_sec >= target_sec - 0.25:
+        return ""
+    ratio = spoken_sec / target_sec
+    filters: list[str] = []
+    remaining = ratio
+    while remaining < 0.5 - 1e-6:
+        filters.append("atempo=0.5")
+        remaining /= 0.5
+    if remaining < 0.995:
+        filters.append(f"atempo={remaining:.4f}")
+    return ",".join(filters)
+
+
 def _fit_voice_clip(src: Path, dest: Path, duration_sec: float) -> None:
     dur = max(0.1, float(duration_sec))
-    run_ffmpeg(["-i", str(src), "-af", f"atrim=duration={dur},apad=whole_dur={dur}", "-t", str(dur), "-c:a", "libmp3lame", "-q:a", "4", str(dest)])
+    spoken = probe_duration(src) or dur
+    parts: list[str] = []
+    tempo = _atempo_filters_to_fill(spoken, dur)
+    if tempo:
+        parts.append(tempo)
+    parts.append(f"atrim=duration={dur}")
+    parts.append(f"apad=whole_dur={dur}")
+    run_ffmpeg(["-i", str(src), "-af", ",".join(parts), "-t", str(dur), "-c:a", "libmp3lame", "-q:a", "4", str(dest)])
 
 
 def _silence_clip(dest: Path, duration_sec: float) -> None:
@@ -573,32 +700,38 @@ def _mix_audio(video_path: Path, output_path: Path, voice_path: Path | None, mus
     if not voice_path and not music_path:
         run_ffmpeg(["-i", str(video_path), "-c", "copy", "-movflags", "+faststart", str(output_path)])
         return
-    
+
+    video_dur = probe_duration(video_path)
+    pad_voice = f",apad=whole_dur={video_dur:.3f}" if video_dur and video_dur > 0 else ""
+
     inputs = ["-i", str(video_path)]
     filter_parts = []
-    
+
     if voice_path:
         inputs.extend(["-i", str(voice_path)])
     if music_path:
         inputs.extend(["-i", str(music_path)])
-    
+
     if voice_path and music_path:
-        filter_parts.append("[1:a]aformat=sample_rates=44100:channel_layouts=mono[v]")
+        filter_parts.append(f"[1:a]aformat=sample_rates=44100:channel_layouts=mono{pad_voice}[v]")
         filter_parts.append("[2:a]aformat=sample_rates=44100:channel_layouts=stereo,aloop=loop=-1:size=2e+09,volume=0.18[m]")
         filter_parts.append("[v][m]amix=inputs=2:duration=first:dropout_transition=2[aout]")
         maps = ["-map", "0:v", "-map", "[aout]"]
     elif voice_path:
-        filter_parts.append("[1:a]aformat=sample_rates=44100:channel_layouts=mono[aout]")
+        filter_parts.append(f"[1:a]aformat=sample_rates=44100:channel_layouts=mono{pad_voice}[aout]")
         maps = ["-map", "0:v", "-map", "[aout]"]
     elif music_path:
         filter_parts.append("[1:a]aformat=sample_rates=44100:channel_layouts=stereo,aloop=loop=-1:size=2e+09,volume=0.25[aout]")
         maps = ["-map", "0:v", "-map", "[aout]"]
-    
+
     cmd = inputs.copy()
     if filter_parts:
         cmd.extend(["-filter_complex", ";".join(filter_parts)])
     cmd.extend(maps)
-    cmd.extend(["-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(output_path)])
+    cmd.extend(["-c:v", "copy", "-c:a", "aac", "-b:a", "192k"])
+    if video_dur and video_dur > 0:
+        cmd.extend(["-t", f"{video_dur:.3f}"])
+    cmd.extend(["-movflags", "+faststart", str(output_path)])
     run_ffmpeg(cmd)
 
 
@@ -613,7 +746,8 @@ def _build_voiceover(script: VideoScript, work_dir: Path, on_stage: Callable | N
         synced = work_dir / f"voice_synced_{scene.id:02d}.mp3"
         if scene.voiceover.strip():
             raw = work_dir / f"voice_{scene.id}.mp3"
-            synthesize_voice(scene.voiceover, raw)
+            spoken_text = _extend_voiceover_if_short(scene.voiceover, scene.duration_sec)
+            synthesize_voice(spoken_text, raw)
             _fit_voice_clip(raw, synced, scene.duration_sec)
         else:
             _silence_clip(synced, scene.duration_sec)
@@ -625,7 +759,9 @@ def _build_voiceover(script: VideoScript, work_dir: Path, on_stage: Callable | N
     list_file = work_dir / "voice_concat.txt"
     list_file.write_text("\n".join(f"file '{p.resolve().as_posix()}'" for p in parts), encoding="utf-8")
     combined = work_dir / "voiceover.mp3"
-    run_ffmpeg(["-f", "concat", "-safe", "0", "-i", str(list_file), "-c", "copy", str(combined)])
+    run_ffmpeg(
+        ["-f", "concat", "-safe", "0", "-i", str(list_file), "-c:a", "libmp3lame", "-q:a", "4", str(combined)]
+    )
     return combined
 
 
@@ -664,7 +800,7 @@ def render_video(script: VideoScript, work_dir: Path, on_stage: Callable | None 
             use_loop = clip_dur is None or clip_dur < scene.duration_sec - 0.5
             _prepare_scene_segment(scene, clip, seg_out, width, height, primary, font_size, text_color, fps, loop=use_loop)
         else:
-            run_ffmpeg(["-f", "lavfi", "-i", f"color=c=0x2d1b4e:s={width}x{height}:d={scene.duration_sec}", "-vf", f"drawtext=text='{_escape_drawtext(_truncate_label(scene.on_screen_text))}':fontsize={font_size}:fontcolor={text_color}:box=1:boxcolor={primary}@0.85:boxborderw=12:x=(w-text_w)/2:y=h-140", "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p", str(seg_out)])
+            run_ffmpeg(["-f", "lavfi", "-i", f"color=c=0x2d1b4e:s={width}x{height}:d={scene.duration_sec}", "-vf", _build_drawtext_filter(scene.on_screen_text, font_size, text_color, primary), "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p", str(seg_out)])
         segment_paths.append(seg_out)
     
     if on_stage:
